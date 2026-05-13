@@ -1,0 +1,50 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Cache y archivos temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Configuracion local de editores
+.vscode/
+.idea/
+
+# Variables de entorno o configuracion privada
+.env
+*.env
+
+# Datos capturados para entrenamiento
+# Estos archivos pueden ser pesados y pertenecen a cada computadora/equipo.
+data_navegacion/
+data_bonus/
+data_senales/
+dataset/
+
+# Modelos entrenados y checkpoints
+modelos/
+*.pt
+*.pth
+*.onnx
+
+# Resultados generados
+resultados/
+*.log
+
+# Archivos multimedia generados o capturados
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.avi
+*.mp4
+*.mov
+
+# Archivos del sistema
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,12 @@
+# Dependencias del proyecto CarritoIA.
+# No incluye modelos preentrenados ni librerias no permitidas.
+
+opencv-python
+numpy
+torch
+torchvision
+matplotlib
+scikit-learn
+pandas
+pyserial
+tqdm

@@ -1,0 +1,12 @@
+Proyecto CarritoIA - Navegacion Autonoma y Reconocimiento de Senales
+
+Este archivo explicara los pasos para:
+
+1. Capturar imagenes propias con TomarDatos.py.
+2. Crear el dataset con CrearDataset.py.
+3. Entrenar el modelo de navegacion con EntrenarNavegacion.py.
+4. Entrenar el modelo de senales con EntrenarSenales.py.
+5. Ejecutar el carrito con Carrito.py.
+
+Por ahora solo contiene la estructura inicial del proyecto.
+
