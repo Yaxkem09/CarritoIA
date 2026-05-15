@@ -5,10 +5,10 @@ from torch.utils.data import DataLoader, Dataset
 import os
 import cv2
 import numpy as np
-from modelo_navegacion import ModeloNavegacion
+from ModeloNavegacion import ModeloNavegacion
 
 # 1. Configuración de carpetas y parámetros
-DATOS_DIR = 'data_navegacion'
+DATOS_DIR = 'dataset_procesado'
 MODELOS_DIR = 'modelos'
 if not os.path.exists(MODELOS_DIR):
     os.makedirs(MODELOS_DIR)

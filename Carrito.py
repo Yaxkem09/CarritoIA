@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 import torch
 import time
-from modelo_navegacion import ModeloNavegacion
-from bluetooth import BluetoothCarrito # Importamos tu clase personalizada
-from Config import COMANDO_DETENER # Asumiendo que 'K' está en tu Config
+from ModeloNavegacion import ModeloNavegacion
+from Bluetooth import BluetoothCarrito
+from Config import COMANDO_DETENER
 
 # 1. Configuración de Dispositivos y Carga de Modelo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
