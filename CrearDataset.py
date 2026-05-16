@@ -3,35 +3,42 @@ import cv2
 import numpy as np
 
 
-def aplicar_filtro_manual(img_gris):
+def aplicar_filtro_sobel_normalizado(img_gris):
     """
-    REGLA ESTRICTA URL: Preprocesamiento manual con NumPy.
-    Aplica kernels Sobel para resaltar la pista sin usar funciones automáticas.
+    Preprocesamiento manual con NumPy.
+    Aplica kernels Sobel y normaliza el gradiente para evitar imágenes negras.
     """
     # Definición de kernels Sobel en NumPy
-    Kx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
-    Ky = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=np.float32)
+    Kx = np.array([[-1, 0, 1],
+                   [-2, 0, 2],
+                   [-1, 0, 1]], dtype=np.float32)
 
-    # Convolución manual (usando filter2D solo para aplicar nuestro kernel)
-    gx = cv2.filter2D(img_gris, -1, Kx)
-    gy = cv2.filter2D(img_gris, -1, Ky)
+    Ky = np.array([[1, 2, 1],
+                   [0, 0, 0],
+                   [-1, -2, -1]], dtype=np.float32)
 
-    # Magnitud del gradiente matricial
+    # Convolución manual
+    gx = cv2.filter2D(img_gris, cv2.CV_32F, Kx)
+    gy = cv2.filter2D(img_gris, cv2.CV_32F, Ky)
+
+    # Magnitud del gradiente
     gradiente = np.sqrt(gx ** 2 + gy ** 2)
-    gradiente = np.clip(gradiente, 0, 255).astype(np.uint8)
-    return gradiente
+
+    # Normalización para mejorar contraste
+    gradiente = cv2.normalize(gradiente, None, 0, 255, cv2.NORM_MINMAX)
+
+    return gradiente.astype(np.uint8)
 
 
 def procesar_imagenes_a_dataset(ruta_origen, ruta_destino):
-    # Nombres de carpetas exactos según tus capturas del disco D
-    clases = ["RECTA", "CURVA_IZQUIERDA", "CURVA_DERERCHA", "GIRO_90_IZQ", "GIRO_90_DER", "CRUCE_T"]
+    clases = ["RECTA", "CURVA_IZQUIERDA", "CURVA_DERECHA",
+              "GIRO_90_IZQ", "GIRO_90_DER", "CRUCE_T"]
 
     if not os.path.exists(ruta_destino):
         os.makedirs(ruta_destino)
         print(f"Carpeta de destino '{ruta_destino}' creada.")
 
     for clase in clases:
-        # Buscamos la carpeta directamente en la ruta de origen
         path_clase = os.path.join(ruta_origen, clase)
 
         if not os.path.exists(path_clase):
@@ -53,12 +60,13 @@ def procesar_imagenes_a_dataset(ruta_origen, ruta_destino):
             img_path = os.path.join(path_clase, img_nombre)
 
             img = cv2.imread(img_path)
-            if img is None: continue
+            if img is None:
+                continue
 
             # Preprocesamiento requerido
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             resized = cv2.resize(gray, (200, 66))  # Resolución para ModeloNavegacion
-            processed = aplicar_filtro_manual(resized)
+            processed = aplicar_filtro_sobel_normalizado(resized)
 
             cv2.imwrite(os.path.join(target_dir, img_nombre), processed)
 
