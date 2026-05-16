@@ -24,7 +24,7 @@ def aplicar_filtro_manual(img_gris):
 
 def procesar_imagenes_a_dataset(ruta_origen, ruta_destino):
     # Nombres de carpetas exactos según tus capturas del disco D
-    clases = ["RECTA", "CURVA_I", "CURVA_D", "GIRO_90_I", "GIRO_90_D", "CRUCE_T"]
+    clases = ["RECTA", "CURVA_IZQUIERDA", "CURVA_DERERCHA", "GIRO_90_IZQ", "GIRO_90_DER", "CRUCE_T"]
 
     if not os.path.exists(ruta_destino):
         os.makedirs(ruta_destino)
