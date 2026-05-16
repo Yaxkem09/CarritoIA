@@ -30,7 +30,7 @@ RUTA_RESULTADOS = "resultados"
 
 
 # Parametros de camara para tomar datos.
-INDICE_CAMARA = 1
+INDICE_CAMARA = 0
 ANCHO_CAMARA = 640
 ALTO_CAMARA = 480
 CADA_CUANTOS_FRAMES_GUARDAR = 5

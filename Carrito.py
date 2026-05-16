@@ -1,98 +1,124 @@
+import time
+
 import cv2
 import numpy as np
 import torch
-import time
-from ModeloNavegacion import ModeloNavegacion
-from Bluetooth import BluetoothCarrito
-from Config import COMANDO_DETENER
 
-# 1. Configuración de Dispositivos y Carga de Modelo
+from Bluetooth import BluetoothCarrito
+from Config import (
+    CLASES_NAVEGACION,
+    COMANDO_AVANZAR,
+    COMANDO_DERECHA,
+    COMANDO_DETENER,
+    COMANDO_GIRO_DERECHA,
+    COMANDO_GIRO_IZQUIERDA,
+    COMANDO_IZQUIERDA,
+    INDICE_CAMARA,
+    RUTA_MODELOS,
+)
+from ModeloNavegacion import ModeloNavegacion
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-modelo = ModeloNavegacion(num_clases=6).to(device)
-modelo.load_state_dict(torch.load('modelos/modelo_final.pth', map_location=device))
+modelo = ModeloNavegacion(num_clases=len(CLASES_NAVEGACION)).to(device)
+modelo.load_state_dict(
+    torch.load(f"{RUTA_MODELOS}/modelo_final.pth", map_location=device)
+)
 modelo.eval()
 
-# Inicializar y conectar Bluetooth
-bt = BluetoothCarrito()
-if not bt.conectar():
-    print("Error: No se pudo establecer conexión Bluetooth. Abortando...")
-    exit()
 
-# Mapeo de Clases de la IA a los comandos que entiende tu Arduino (según tu bluetooth.py)
-# Orden: RECTA, CURVA_I, CURVA_D, GIRO_90_I, GIRO_90_D, CRUCE_T
 MAPEO_COMANDOS = {
-    "RECTA": "I",
-    "CURVA_I": "J",
-    "CURVA_D": "L",
-    "GIRO_90_I": "U",
-    "GIRO_90_D": "O",
-    "CRUCE_T": "CRUCE_T" # Caso especial para lógica
+    "RECTA": COMANDO_AVANZAR,
+    "CURVA_IZQUIERDA": COMANDO_IZQUIERDA,
+    "CURVA_DERECHA": COMANDO_DERECHA,
+    "GIRO_90_IZQ": COMANDO_GIRO_IZQUIERDA,
+    "GIRO_90_DER": COMANDO_GIRO_DERECHA,
 }
 
-CLASES = ["RECTA", "CURVA_I", "CURVA_D", "GIRO_90_I", "GIRO_90_D", "CRUCE_T"]
 
-# 2. Preprocesamiento Matricial Manual (REGLA ESTRICTA)
 def preprocesar_frame(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     resized = cv2.resize(gray, (200, 66))
-
-    # Normalización manual con NumPy
     img_array = np.array(resized, dtype=np.float32) / 255.0
     return img_array
 
-# 3. Lógica de Decisión y Control (Cruce en T)
-def ejecutar_accion(clase_predicha):
+
+def ejecutar_accion(bt, clase_predicha):
     if clase_predicha == "CRUCE_T":
-        print("¡Cruce en T detectado! Deteniendo 2 seg...")
-        bt.enviar(COMANDO_DETENER) # Envía 'K'
+        print("Cruce en T detectado. Deteniendo 2 segundos...")
+        bt.enviar(COMANDO_DETENER)
         time.sleep(2)
 
-        # Decisión pseudoaleatoria requerida
-        decision = np.random.choice(["U", "O"]) # Giro fuerte I o D
-        print(f"Decisión tomada: {decision}")
+        decision = np.random.choice([COMANDO_GIRO_IZQUIERDA, COMANDO_GIRO_DERECHA])
+        print(f"Decision tomada: {decision}")
         bt.enviar(decision)
-        time.sleep(1.5) # Tiempo para completar maniobra
-    else:
-        comando = MAPEO_COMANDOS.get(clase_predicha)
-        bt.enviar(comando)
+        time.sleep(1.5)
+        return
 
-# 4. Bucle Principal de Inferencia
-cap = cv2.VideoCapture(0)
-fifo_frames = []
+    comando = MAPEO_COMANDOS.get(clase_predicha, COMANDO_DETENER)
+    bt.enviar(comando)
 
-print("Sistema iniciado. Presione 'q' para salir.")
 
-try:
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret: break
+def main():
+    bt = BluetoothCarrito()
+    if not bt.conectar():
+        print("Error: No se pudo establecer conexion Bluetooth. Abortando...")
+        return
 
-        img_processed = preprocesar_frame(frame)
-        fifo_frames.append(img_processed)
+    cap = cv2.VideoCapture(INDICE_CAMARA)
+    if not cap.isOpened():
+        print(f"Error: No se pudo abrir la camara con indice {INDICE_CAMARA}.")
+        bt.cerrar()
+        return
 
-        if len(fifo_frames) == 3:
-            # Preparar tensor para el modelo (Batch, Canales/Frames, H, W)
-            input_tensor = torch.from_numpy(np.array(fifo_frames)).unsqueeze(0).to(device)
+    fifo_frames = []
+    print("Sistema iniciado. Presione 'q' para salir.")
 
-            with torch.no_grad():
-                output = modelo(input_tensor)
-                _, pred = torch.max(output, 1)
-                clase_nombre = CLASES[pred.item()]
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                print("No se pudo leer frame de la camara.")
+                break
 
-            ejecutar_accion(clase_nombre)
+            img_processed = preprocesar_frame(frame)
+            fifo_frames.append(img_processed)
 
-            # Feedback visual
-            cv2.putText(frame, f"IA: {clase_nombre}", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            if len(fifo_frames) == 3:
+                input_tensor = torch.from_numpy(np.array(fifo_frames)).unsqueeze(0).to(device)
 
-            fifo_frames.pop(0)
+                with torch.no_grad():
+                    output = modelo(input_tensor)
+                    probabilidad = torch.softmax(output, dim=1)
+                    confianza, pred = torch.max(probabilidad, 1)
+                    clase_nombre = CLASES_NAVEGACION[pred.item()]
 
-        cv2.imshow('CarritoIA - Control Autónomo', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+                ejecutar_accion(bt, clase_nombre)
 
-finally:
-    print("Cerrando sistema...")
-    bt.enviar(COMANDO_DETENER)
-    bt.cerrar()
-    cap.release()
-    cv2.destroyAllWindows()
+                texto = f"IA: {clase_nombre} ({confianza.item() * 100:.1f}%)"
+                cv2.putText(
+                    frame,
+                    texto,
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 255, 0),
+                    2,
+                )
+
+                fifo_frames.pop(0)
+
+            cv2.imshow("CarritoIA - Control Autonomo", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    finally:
+        print("Cerrando sistema...")
+        bt.enviar(COMANDO_DETENER)
+        bt.cerrar()
+        cap.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
