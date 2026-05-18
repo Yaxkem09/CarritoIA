@@ -23,7 +23,7 @@ from ModeloNavegacion import ModeloNavegacion
 
 
 # Poner en True el dia de la demostracion (robot conectado).
-USAR_BLUETOOTH = False
+USAR_BLUETOOTH = True
 TAM_VENTANA = 3
 # Predicciones recientes usadas en el voto por mayoria. Mas alto = mas
 # estable pero reacciona mas lento. Bajalo a 3 si reacciona tarde.
@@ -58,14 +58,21 @@ def preprocesar_frame(frame):
 def ejecutar_accion(bt, clase_predicha):
     if clase_predicha == "CRUCE_T":
         print("Cruce en T detectado. Deteniendo 2 segundos...")
-        if USAR_BLUETOOTH:
-            bt.enviar(COMANDO_DETENER)
-        time.sleep(2)
+        t_fin = time.time() + 2.0
+        while time.time() < t_fin:
+            if USAR_BLUETOOTH:
+                bt.enviar(COMANDO_DETENER)
+            time.sleep(0.1)
+
         decision = np.random.choice([COMANDO_GIRO_IZQUIERDA, COMANDO_GIRO_DERECHA])
         print(f"Decision tomada: {decision}")
-        if USAR_BLUETOOTH:
-            bt.enviar(decision)
-        time.sleep(1.5)
+        # IMPORTANTE: reenviar el giro continuamente. Si se envia una sola
+        # vez, el timeout de seguridad del Arduino (500 ms) lo corta.
+        t_fin = time.time() + 1.5
+        while time.time() < t_fin:
+            if USAR_BLUETOOTH:
+                bt.enviar(decision)
+            time.sleep(0.1)
         return
 
     comando = MAPEO_COMANDOS.get(clase_predicha, COMANDO_DETENER)
@@ -80,6 +87,7 @@ def main():
         return
 
     cap = cv2.VideoCapture(INDICE_CAMARA)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
         print(f"Error: No se pudo abrir la camara con indice {INDICE_CAMARA}.")
         if USAR_BLUETOOTH:

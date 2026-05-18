@@ -184,7 +184,7 @@ def iniciar_entrenamiento():
     conteo_train = collections.Counter(lbl for _, lbl in ventanas_train)
     total = sum(conteo_train.values())
     pesos = torch.tensor(
-        [total / (len(CLASES_NAVEGACION) * max(conteo_train[i], 1))
+        [(total / (len(CLASES_NAVEGACION) * max(conteo_train[i], 1))) ** 0.5
          for i in range(len(CLASES_NAVEGACION))],
         dtype=torch.float32,
     ).to(DEVICE)

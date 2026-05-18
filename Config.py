@@ -37,7 +37,7 @@ CADA_CUANTOS_FRAMES_GUARDAR = 5
 
 
 # Parametros de Bluetooth para comunicarse con Arduino.
-PUERTO_BLUETOOTH = "COM4"
+PUERTO_BLUETOOTH = "COM8"
 BAUDRATE = 9600
 TIMEOUT_BLUETOOTH = 1
 
