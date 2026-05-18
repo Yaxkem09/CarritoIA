@@ -12,7 +12,6 @@ Desarrollar un carrito capaz de:
 - Clasificar el movimiento que debe realizar: avanzar, curva, giro o detenerse ante un cruce.
 - Enviar comandos al Arduino por Bluetooth.
 - Entrenar modelos propios sin usar datasets publicos ni modelos preentrenados.
-- Incluir un reto bonus de reconocimiento de senales.
 
 ## Restricciones del Proyecto
 
@@ -44,14 +43,11 @@ CarritoIA/
 |-- Config.py                 # Clases, rutas, camara, Bluetooth y comandos
 |-- CrearDataset.py           # Preprocesamiento con filtro Sobel
 |-- EntrenarNavegacion.py     # Entrenamiento del modelo principal
-|-- EntrenarBonus.py          # Entrenamiento del modelo para senales
 |-- EvaluarMetricas.py        # Reporte de metricas y matriz de confusion
 |-- ModeloNavegacion.py       # CNN espacio-temporal creada desde cero
-|-- ModeloBonus.py            # Modelo tipo Vision Transformer creado desde cero
 |-- TomarDatos.py             # Captura de imagenes propias con camara
 |-- requirements.txt          # Dependencias del proyecto
 |-- data_navegacion/          # Imagenes propias para navegacion
-|-- data_bonus/               # Imagenes propias para senales del bonus
 |-- dataset/                  # Datos procesados o auxiliares
 |-- modelos/                  # Modelos entrenados
 |-- resultados/               # Graficas y resultados de evaluacion
@@ -67,13 +63,6 @@ CarritoIA/
 - `GIRO_90_IZQ`
 - `GIRO_90_DER`
 - `CRUCE_T`
-
-### Bonus
-
-- `ALTO`
-- `REDUCCION_VELOCIDAD`
-- `PEATONES`
-- `NINGUNA_SENAL`
 
 ## Instalacion
 
@@ -106,14 +95,6 @@ Valores importantes:
 - `CADA_CUANTOS_FRAMES_GUARDAR`: frecuencia de guardado durante la captura.
 - `PUERTO_BLUETOOTH`: puerto COM del modulo Bluetooth.
 - `BAUDRATE`: velocidad serial, por defecto `9600`.
-
-Ejemplo:
-
-```python
-INDICE_CAMARA = 1
-PUERTO_BLUETOOTH = "COM4"
-BAUDRATE = 9600
-```
 
 Si la camara no abre, probar con `INDICE_CAMARA = 0`, `1` o `2`.
 
@@ -170,23 +151,7 @@ Este entrenamiento:
 
 El modelo principal es una CNN espacio-temporal creada desde cero en `ModeloNavegacion.py`.
 
-### 4. Entrenar modelo bonus
-
-Ejecutar:
-
-```bash
-python EntrenarBonus.py
-```
-
-Este entrenamiento:
-
-- Usa las imagenes de `data_bonus/`.
-- Clasifica las senales del reto bonus.
-- Guarda el modelo en `modelos/modelo_bonus.pth`.
-
-El modelo bonus esta definido en `ModeloBonus.py`.
-
-### 5. Evaluar metricas
+### 4. Evaluar metricas
 
 Ejecutar:
 
@@ -208,7 +173,7 @@ La matriz de confusion se guarda en:
 resultados/matriz_confusion.png
 ```
 
-### 6. Ejecutar el carrito
+### 5. Ejecutar el carrito
 
 Ejecutar:
 
@@ -289,45 +254,7 @@ Durante la ejecucion, el carrito usa voto por mayoria sobre predicciones recient
 Durante el uso del proyecto se generan archivos como:
 
 - `modelos/modelo_final.pth`
-- `modelos/modelo_bonus.pth`
 - `resultados/curvas_entrenamiento.png`
 - `resultados/matriz_confusion.png`
 
 Estos archivos pueden cambiar cada vez que se entrena nuevamente.
-
-## Posibles Problemas
-
-### No abre la camara
-
-Cambiar `INDICE_CAMARA` en `Config.py`.
-
-### No conecta Bluetooth
-
-Revisar:
-
-- Que el modulo Bluetooth este emparejado.
-- Que el puerto en `PUERTO_BLUETOOTH` sea correcto.
-- Que ningun otro programa este usando el puerto COM.
-- Que el baudrate coincida con el codigo de Arduino.
-
-### No existe `modelo_final.pth`
-
-Ejecutar primero:
-
-```bash
-python EntrenarNavegacion.py
-```
-
-### Error por falta de imagenes
-
-Capturar mas datos con:
-
-```bash
-python TomarDatos.py
-```
-
-El modelo de navegacion necesita suficientes imagenes por clase para crear ventanas de 3 frames.
-
-## Estado Actual
-
-El repositorio incluye la estructura completa del proyecto, scripts de captura, entrenamiento, evaluacion, ejecucion y comunicacion Bluetooth. Para repetir el flujo completo desde cero se deben capturar imagenes propias, entrenar los modelos y luego ejecutar el carrito con el modelo guardado.
