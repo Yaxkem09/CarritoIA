@@ -22,13 +22,15 @@ from Config import (
 from ModeloNavegacion import ModeloNavegacion
 
 
-# Poner en True el dia de la demostracion (robot conectado).
-USAR_BLUETOOTH = True
-TAM_VENTANA = 3
-# Predicciones recientes usadas en el voto por mayoria. Mas alto = mas
-# estable pero reacciona mas lento. Bajalo a 3 si reacciona tarde.
-TAM_VOTO = 5
+USAR_BLUETOOTH = True    # True para la prueba con el robot
+TAM_VENTANA = 3          # frames por ventana del modelo (= entrenamiento)
 
+# --- Control del CRUCE_T (lo importante) ---
+TAM_VOTO = 3             # voto corto para la direccion (responsivo)
+VENTANA_CRUCE = 6        # predicciones recientes que se vigilan para el cruce
+MIN_FRAMES_CRUCE = 4     # cuantas de esas deben ser CRUCE_T para CONFIRMAR
+CONF_MIN_CRUCE = 0.70    # confianza minima para que un frame cuente como cruce
+CONFIRMACIONES_CURVA = 4  # para cambiar a una curva, se necesitan esta cantidad de predicciones seguidass
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 modelo = ModeloNavegacion(num_clases=len(CLASES_NAVEGACION)).to(device)
@@ -95,10 +97,15 @@ def main():
         return
 
     fifo_frames = deque(maxlen=TAM_VENTANA)
-    historial_pred = deque(maxlen=TAM_VOTO)   # para el voto por mayoria
-    contador_frames = 0
-    clase_estable = "..."
+    hist_cruce = deque(maxlen=VENTANA_CRUCE)   # ventana larga para el CRUCE_T
+
+    # Debounce de la direccion.
+    clase_manejo = "RECTA"      # comando que se esta ejecutando
+    clase_candidata = "RECTA"   # clase nueva que aun no se confirma
+    contador_candidata = 0      # veces seguidas que aparecio la candidata
+
     confianza_val = 0.0
+    contador_frames = 0
 
     print("Sistema iniciado. Presione 'q' para salir.")
 
@@ -111,8 +118,6 @@ def main():
 
             contador_frames += 1
 
-            # 1 de cada CADA_CUANTOS_FRAMES_GUARDAR frames -> mismo espaciado
-            # temporal que el dataset.
             if contador_frames % CADA_CUANTOS_FRAMES_GUARDAR == 0:
                 fifo_frames.append(preprocesar_frame(frame))
 
@@ -129,22 +134,44 @@ def main():
                         clase_cruda = CLASES_NAVEGACION[pred.item()]
                         confianza_val = confianza.item()
 
-                    # Voto por mayoria: suaviza errores sueltos del modelo y
-                    # evita que el robot oscile entre comandos contradictorios.
-                    historial_pred.append(clase_cruda)
-                    clase_estable = Counter(historial_pred).most_common(1)[0][0]
+                    # --- Vigilancia del CRUCE_T (estricta) ---
+                    es_cruce = (clase_cruda == "CRUCE_T"
+                                and confianza_val >= CONF_MIN_CRUCE)
+                    hist_cruce.append(es_cruce)
 
-                    ejecutar_accion(bt, clase_estable)
+                    # --- Debounce de la direccion (suave) ---
+                    # El comando solo cambia si una clase distinta a la actual
+                    # se repite CONFIRMACIONES_CURVA veces seguidas.
+                    if clase_cruda != "CRUCE_T":
+                        if clase_cruda == clase_manejo:
+                            contador_candidata = 0          # ya estamos ahi
+                        elif clase_cruda == clase_candidata:
+                            contador_candidata += 1
+                            if contador_candidata >= CONFIRMACIONES_CURVA:
+                                clase_manejo = clase_candidata
+                                contador_candidata = 0
+                        else:
+                            clase_candidata = clase_cruda
+                            contador_candidata = 1
 
-                    # Tras resolver un cruce en T, limpiar los buffers para no
-                    # volver a dispararlo con votos viejos.
-                    if clase_estable == "CRUCE_T":
-                        historial_pred.clear()
+                    # --- Decision final ---
+                    n_cruce = sum(hist_cruce)
+                    if (len(hist_cruce) == VENTANA_CRUCE
+                            and n_cruce >= MIN_FRAMES_CRUCE):
+                        print(f"CRUCE en T CONFIRMADO ({n_cruce}/{VENTANA_CRUCE}).")
+                        ejecutar_accion(bt, "CRUCE_T")
+                        hist_cruce.clear()
                         fifo_frames.clear()
+                        clase_manejo = "RECTA"
+                        clase_candidata = "RECTA"
+                        contador_candidata = 0
+                    else:
+                        ejecutar_accion(bt, clase_manejo)
 
-            texto = f"IA: {clase_estable} ({confianza_val * 100:.1f}%)"
+            texto = (f"{clase_manejo}  conf:{confianza_val * 100:.0f}%  "
+                     f"cruceT:{sum(hist_cruce)}/{VENTANA_CRUCE}")
             cv2.putText(frame, texto, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
             cv2.imshow("CarritoIA - Control Autonomo", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
